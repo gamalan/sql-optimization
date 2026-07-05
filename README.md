@@ -27,6 +27,7 @@ Covers the full read/write optimization stack:
 - Read/write splitting (app-level + ProxySQL)
 - Connection pooling (HikariCP, SQLAlchemy, Prisma, GORM sizing)
 - Indexing strategy (composite index rules, finding unused indexes)
+- **Indexing principles from [Use The Index, Luke!](https://use-the-index-luke.com/)** (see `docs/index-luke-lessons.md`)
 - Query optimization (EXPLAIN hierarchy, N+1 → batch, OFFSET → cursor)
 - SQLCommenter-style query tagging for attribution
 - Monitoring (metrics, alert thresholds, pt-query-digest, DIY Insights)

@@ -27,7 +27,8 @@ audit script first:
 8. [Monitoring & Observability](#8-monitoring--observability)
 9. [Backup & Recovery](#9-backup--recovery)
 10. [PlanetScale-Inspired Practices (Adapted)](#10-planetscale-inspired-practices-adapted)
-11. [Quick Reference Card](#11-quick-reference-card)
+11. [Indexing Principles — Use The Index, Luke!](#11-indexing-principles-from-use-the-index-luke)
+12. [Quick Reference Card](#12-quick-reference-card)
 
 ---
 
@@ -920,7 +921,28 @@ docker exec mysql-restore-test mysql -u root -ptest \
 
 ---
 
-## 10. PlanetScale-Inspired Practices (Adapted)
+## 11. Indexing Principles from Use The Index, Luke
+
+For a deep dive into indexing fundamentals, read the companion reference:
+**[docs/index-luke-lessons.md](docs/index-luke-lessons.md)** — 12 key lessons
+distilled from Markus Winand's [Use The Index, Luke!](https://use-the-index-luke.com/).
+
+Core principles:
+
+- **The Three Powers of an Index** — Filter, Join, Sort. One composite index
+  can serve all three simultaneously with correct column ordering.
+- **Concatenated Index Column Order** — Equality first, then ranges, then
+  ORDER BY columns. "Most selective first" is a myth.
+- **Pipelined ORDER BY** — If the index delivers rows in the needed order,
+  the database skips the sort operation entirely.
+- **Keyset Pagination (Seek Method)** — Constant-time pagination vs
+  OFFSET's linear degradation.
+- **Covering Indexes (Index-Only Scans)** — Include all needed columns in
+  the index to skip table access entirely.
+- **N+1 = Accidental Nested Loops** — The ORM N+1 problem is the database's
+  nested loops join algorithm executed with network round-trips.
+
+## 12. PlanetScale-Inspired Practices (Adapted)
 
 While you're not on PlanetScale, their engineering insights are valuable.
 Here's how to adapt them for self-managed MySQL:
