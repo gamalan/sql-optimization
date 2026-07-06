@@ -37,18 +37,18 @@ Each supports `--role primary|replica` and workload profiles:
 ### Slow Query Analyzer (run after audit)
 
 Extracts and fingerprints slow queries, maps them to ORM anti-patterns,
-and recommends framework-idiomatic fixes. See `slow-query-analyzer/` for
+and recommends framework-idiomatic fixes. See `skills/slow-query-analyzer/` for
 the full skill document.
 
 ```bash
 # MySQL
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h HOST -u USER -d DB -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h HOST -u USER -d DB -o report.json
 
 # PostgreSQL
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h HOST -U USER -d DB -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h HOST -U USER -d DB -o report.json
 
 # SQLite
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db -o report.json
 ```
 
 Frameworks covered: Laravel, Django, Rails, Prisma, SQLAlchemy, GORM, Entity Framework.
@@ -82,9 +82,9 @@ The agent will:
 
 1. Run `./postgresql-audit.sh -h db-primary -U postgres -d mydb -r primary`
 2. Review the generated `postgresql-optimized.conf` and report
-3. Run `./slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h db-primary -U postgres -d mydb -o report.json`
-4. Cross-reference queries against `slow-query-analyzer/patterns/django.md`
-   and `slow-query-analyzer/patterns/postgresql.md`
+3. Run `./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h db-primary -U postgres -d mydb -o report.json`
+4. Cross-reference queries against `skills/slow-query-analyzer/patterns/django.md`
+   and `skills/slow-query-analyzer/patterns/postgresql.md`
 5. Search the Django app for matching ORM calls
 6. Report findings with before/after code snippets
 
@@ -99,7 +99,7 @@ The agent will:
 ├── README.md                         # Full project readme
 ├── docs/index-luke-lessons.md        # Indexing lessons from Use The Index, Luke!
 ├── skills/index-luke/                # Indexing expertise skill
-└── slow-query-analyzer/              # Multi-DB slow query analyzer
+└── skills/slow-query-analyzer/              # Multi-DB slow query analyzer
     ├── analyze-slow-queries.sh       # Extraction script
     ├── SKILL.md                      # Full skill documentation
     └── patterns/                     # Framework + DB anti-patterns

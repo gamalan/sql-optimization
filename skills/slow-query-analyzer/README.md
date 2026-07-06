@@ -1,15 +1,15 @@
-# Slow Query Framework Analyzer
+# Slow Query Framework Analyzer (Multi-Database)
 
-An agent skill that analyzes MySQL slow queries and maps them to
-framework-specific ORM code patterns — identifying the exact anti-pattern
-(Laravel N+1, Django missing `select_related`, Rails missing `includes`,
-Prisma missing `include`, etc.) and providing idiomatic fixes.
+An agent skill that analyzes slow queries from MySQL, PostgreSQL, or SQLite
+and maps them to framework-specific ORM code patterns — identifying the exact
+anti-pattern (Laravel N+1, Django missing `select_related`, Rails missing
+`includes`, Prisma missing `include`, etc.) and providing idiomatic fixes.
 
 ## What It Does
 
-1. **Ingests slow queries** from MySQL Performance Schema, slow query log
-   file, or pasted query text (supports offline mode when the agent can't
-   access production DB)
+1. **Ingests slow queries** from MySQL (Performance Schema), PostgreSQL
+   (pg_stat_statements), or SQLite (schema + EXPLAIN QUERY PLAN), plus
+   offline log files and pasted query text
 2. **Fingerprints queries** and ranks them by impact
 3. **Detects the framework** (Laravel, Django, Rails, Prisma, SQLAlchemy,
    GORM, Entity Framework) from the application repository
@@ -25,17 +25,19 @@ Prisma missing `include`, etc.) and providing idiomatic fixes.
 ## Files
 
 ```
-slow-query-analyzer/
+skills/slow-query-analyzer/
 ├── SKILL.md                       # Agent skill instructions
-├── analyze-slow-queries.sh        # MySQL extraction + fingerprinting script
-├── patterns/                      # Framework-specific anti-pattern databases
+├── analyze-slow-queries.sh        # Multi-DB extraction + fingerprinting script
+├── patterns/                      # Framework + DB-specific anti-pattern databases
 │   ├── laravel.md                 # Eloquent & Query Builder
 │   ├── django.md                  # Django ORM
 │   ├── rails.md                   # ActiveRecord
 │   ├── prisma.md                  # Prisma Client
 │   ├── sqlalchemy.md              # SQLAlchemy ORM
 │   ├── gorm.md                    # GORM
-│   └── entity-framework.md        # EF Core
+│   ├── entity-framework.md        # EF Core
+│   ├── postgresql.md              # PostgreSQL-specific patterns
+│   └── sqlite.md                  # SQLite-specific patterns
 └── README.md                      # This file
 ```
 
@@ -56,8 +58,14 @@ slow-query-analyzer/
 ### Live Mode (agent has DB access)
 
 ```bash
-# Extract top 30 slow queries from MySQL
-./analyze-slow-queries.sh -h db-primary -u root -p secret -d mydb -o report.json
+# MySQL
+./analyze-slow-queries.sh --dbtype mysql -h db-primary -u root -p secret -d mydb -o report.json
+
+# PostgreSQL
+./analyze-slow-queries.sh --dbtype postgresql -h pg-host -U postgres -d mydb -o report.json
+
+# SQLite
+./analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db -o report.json
 
 # Then in your agent prompt:
 "Analyze slow queries from report.json for our Laravel app at /path/to/repo"
@@ -66,11 +74,14 @@ slow-query-analyzer/
 ### Offline Mode (no DB access — user provides the log)
 
 ```bash
-# User exports the slow query log from production:
-# cat /var/log/mysql/mysql-slow.log | head -5000 > slow-sample.log
+# MySQL slow log
+./analyze-slow-queries.sh --from-slow-log mysql-slow.log --dbtype mysql -o report.json
 
-# Agent analyzes it locally:
-./analyze-slow-queries.sh --from-slow-log slow-sample.log -o report.json
+# PostgreSQL log (stderr/CSV format)
+./analyze-slow-queries.sh --from-slow-log postgresql.log --dbtype postgresql -o report.json
+
+# SQLite: no log needed — run directly on the .db file
+./analyze-slow-queries.sh --dbtype sqlite -f database.db -o report.json
 ```
 
 ### Pasted Query Mode (user provides queries directly)
@@ -116,6 +127,6 @@ No changes have been applied. All fixes require manual review and approval.
 
 ## Related Tools
 
-- Companion to `mysql-audit.sh` for server-level configuration
-- Pairs with `MYSQL-OPTIMIZATION-GUIDE.md` for general MySQL optimization
-- Uses PlanetScale-inspired SQLCommenter tagging for query attribution
+- Companion to `mysql-audit.sh`, `postgresql-audit.sh`, `sqlite-audit.sh` for server-level configuration
+- Pairs with `MYSQL-OPTIMIZATION-GUIDE.md` for MySQL optimization
+- Pairs with `skills/index-luke/` for indexing expertise

@@ -215,17 +215,17 @@ When live database access is available, run the companion script:
 
 ```bash
 # MySQL
-./slow-query-analyzer/analyze-slow-queries.sh \
+./skills/slow-query-analyzer/analyze-slow-queries.sh \
     --dbtype mysql -h <host> -u <user> -p <password> -d <db> \
     -o slow-queries-report.json
 
 # PostgreSQL
-./slow-query-analyzer/analyze-slow-queries.sh \
+./skills/slow-query-analyzer/analyze-slow-queries.sh \
     --dbtype postgresql -h <host> -U <user> -d <db> \
     -o slow-queries-report.json
 
 # SQLite
-./slow-query-analyzer/analyze-slow-queries.sh \
+./skills/slow-query-analyzer/analyze-slow-queries.sh \
     --dbtype sqlite -f /path/to/database.db \
     -o slow-queries-report.json
 ```

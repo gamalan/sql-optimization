@@ -103,7 +103,7 @@ diagnoses SQL indexing: composite index column ordering, pipelined ORDER
 BY, keyset pagination, covering indexes, join indexing, and 10 indexed
 lessons covering the full body of work.
 
-### `slow-query-analyzer/` — Multi-Database Slow Query Analyzer
+### `skills/slow-query-analyzer/` — Multi-Database Slow Query Analyzer
 
 An agent-agnostic skill that extracts slow queries from MySQL, PostgreSQL, or
 SQLite, fingerprints them, and maps each to framework ORM anti-patterns with
@@ -136,13 +136,13 @@ locates source code → recommends framework-idiomatic fix → rates severity.
 
 ```bash
 # MySQL
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h db-host -u root -d mydb -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h db-host -u root -d mydb -o report.json
 
 # PostgreSQL
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h db-host -U postgres -d mydb -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h db-host -U postgres -d mydb -o report.json
 
 # SQLite
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db -o report.json
 ```
 
 ## Quick Start
@@ -150,15 +150,15 @@ locates source code → recommends framework-idiomatic fix → rates severity.
 ```bash
 # MySQL: Audit config + analyze slow queries
 ./mysql-audit.sh -h your-db-host -u root -r primary
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h your-db-host -u root -d mydb -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h your-db-host -u root -d mydb -o report.json
 
 # PostgreSQL: Audit config + analyze slow queries
 ./postgresql-audit.sh -h your-db-host -U postgres -d mydb -r primary
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h your-db-host -U postgres -d mydb -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h your-db-host -U postgres -d mydb -o report.json
 
 # SQLite: Audit PRAGMAs + analyze schema/queries
 ./sqlite-audit.sh -d myapp.db -w web
-./slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f myapp.db -o report.json
+./skills/slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f myapp.db -o report.json
 
 # Apply the generated configs (review first!)
 # MySQL:   cp mysql-optimized.cnf /etc/mysql/my.cnf && systemctl restart mysql
@@ -184,7 +184,7 @@ pi install . --name sql-optimization
 pi install github:gamalan/sql-optimization --name sql-optimization
 
 # === Pi (Individual skills if you only need one) ===
-pi install ./slow-query-analyzer --name slow-query-analyzer
+pi install ./skills/slow-query-analyzer --name slow-query-analyzer
 pi install ./skills/index-luke --name index-luke
 # Note: individual installs only include that subdirectory — audit
 # scripts at repo root won't be available to the agent.
@@ -225,4 +225,4 @@ Once installed, invoke the skills in natural language:
 
 ## License
 
-MIT — see [LICENSE](slow-query-analyzer/LICENSE).
+MIT — see [LICENSE](skills/slow-query-analyzer/LICENSE).

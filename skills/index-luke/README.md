@@ -60,4 +60,4 @@ modules covering ~45 pages of SQL indexing theory and practice.
 
 ## License
 
-MIT — see [LICENSE](../../slow-query-analyzer/LICENSE)
+MIT — see [LICENSE](../slow-query-analyzer/LICENSE)
