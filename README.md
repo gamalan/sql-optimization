@@ -1,11 +1,26 @@
-# MySQL Optimization Toolkit
+# SQL Optimization Toolkit
 
-Tools and guides for self-managed MySQL 8.0 — audit, configure, and
-diagnose slow queries across popular frameworks.
+Database audit and optimization scripts for MySQL, PostgreSQL, and SQLite.
+Audit configuration, identify issues, and generate optimized configs for
+your hardware and workload.
+
+## Database Auditors
+
+| Script | Database | What It Audits |
+|--------|----------|----------------|
+| `mysql-audit.sh` | MySQL 8.0 | InnoDB, replication, connections, temp tables, slow log, Performance Schema |
+| `postgresql-audit.sh` | PostgreSQL 14+ | Memory, WAL, autovacuum, query planner, replication, logging, extensions |
+| `sqlite-audit.sh` | SQLite 3.x | PRAGMAs (journal, cache, sync), indexes, schema, integrity, fragmentation |
+
+Each auditor connects to a running instance (or database file), runs a full diagnostic,
+and generates:
+
+1. **An optimized configuration file** (`my.cnf`, `postgresql.conf`, or PRAGMA SQL)
+2. **A detailed audit report** with recommendations
 
 ## What's Inside
 
-### `mysql-audit.sh` — Configuration Auditor & Optimizer
+### `mysql-audit.sh` — MySQL Configuration Auditor & Optimizer
 
 Connects to a running MySQL instance, audits 10 configuration areas
 (InnoDB, connections, replication, temp tables, slow log, Performance
@@ -17,6 +32,52 @@ hardware and workload.
 ```
 
 Supports `--role primary|replica` and `--workload oltp|read-heavy|write-heavy|balanced`.
+
+### `postgresql-audit.sh` — PostgreSQL Configuration Auditor & Optimizer
+
+Connects to a running PostgreSQL instance (primary or replica), audits 10
+configuration areas (shared_buffers, WAL, autovacuum, query planner, replication,
+logging, extensions), and generates an optimized `postgresql.conf`.
+
+```bash
+./postgresql-audit.sh -h db-primary -U postgres -d mydb -r primary -w oltp
+```
+
+Supports `--role primary|replica` and `--workload oltp|analytics|balanced|read-heavy`.
+
+**Audited areas:**
+
+- Memory (shared_buffers, work_mem, maintenance_work_mem, effective_cache_size)
+- WAL & checkpoints (wal_level, max_wal_size, checkpoint_timeout, synchronous_commit)
+- Autovacuum (dead tuples, max_workers, scale factor, cost limits, TXID age)
+- Connections (max_connections, idle/active breakdown, connection memory risk)
+- Query planner (random_page_cost, effective_io_concurrency, JIT, parallel query)
+- Replication (streaming replication lag, WAL senders, replication slots, hot_standby)
+- Logging & monitoring (slow query log, pg_stat_statements, auto_explain, lock_waits)
+- Database stats (table sizes, cache hit ratios, dead tuples, index scan ratio)
+- Index analysis (duplicate, invalid, unused, scan ratio)
+
+### `sqlite-audit.sh` — SQLite Database Auditor & Optimizer
+
+Analyzes a SQLite database file, audits PRAGMA settings, indexes, fragmentation,
+and generates optimized PRAGMA recommendations for your workload.
+
+```bash
+./sqlite-audit.sh -d myapp.db -w web
+```
+
+Supports `--workload web|mobile|embedded|analytics|read-heavy`.
+
+**Audited areas:**
+
+- System info (SQLite version, compile options, file size, page count, fragmentation)
+- PRAGMAs (journal_mode, synchronous, cache_size, page_size, mmap_size, temp_store,
+  auto_vacuum, foreign_keys, busy_timeout, secure_delete, wal_autocheckpoint)
+- Schema analysis (tables, indexes, auto-indexes, triggers, views, WITHOUT ROWID)
+- Index analysis (per-table index counts, tables missing indexes, space usage)
+- Table statistics (row counts via sqlite_stat1, STAT4 availability)
+- Query planner settings
+- Integrity checks (integrity_check, foreign_key_check)
 
 ### `MYSQL-OPTIMIZATION-GUIDE.md` — Comprehensive Guide
 
@@ -42,53 +103,83 @@ diagnoses SQL indexing: composite index column ordering, pipelined ORDER
 BY, keyset pagination, covering indexes, join indexing, and 10 indexed
 lessons covering the full body of work.
 
-### `slow-query-analyzer/` — Agent Skill
+### `slow-query-analyzer/` — Multi-Database Slow Query Analyzer
 
-An agent-agnostic skill that maps MySQL slow queries to framework ORM
-anti-patterns and provides idiomatic fixes.
+An agent-agnostic skill that extracts slow queries from MySQL, PostgreSQL, or
+SQLite, fingerprints them, and maps each to framework ORM anti-patterns with
+idiomatic fixes.
 
-**Frameworks covered:** Laravel (Eloquent), Django (ORM), Rails
-(ActiveRecord), Prisma, SQLAlchemy, GORM, Entity Framework.
+**Databases supported:** MySQL (Performance Schema), PostgreSQL (pg_stat_statements),
+SQLite (schema + EXPLAIN QUERY PLAN).
 
-**Three entry modes:**
+**Frameworks covered:** Laravel (Eloquent), Django (ORM), Rails (ActiveRecord),
+Prisma, SQLAlchemy, GORM, Entity Framework.
 
-| Mode | How |
-|------|-----|
-| Live | Agent queries Performance Schema directly |
-| Offline | User provides `mysql-slow.log` file |
-| Pasted | User pastes queries from logs, New Relic, pt-query-digest, etc. |
+**Database-specific additive patterns:**
+
+| Database | Pattern File | Key Concerns |
+|----------|-------------|--------------|
+| PostgreSQL | `patterns/postgresql.md` | CTEs, BRIN indexes, parallel workers, partitioning |
+| SQLite | `patterns/sqlite.md` | WAL tuning, PRAGMA optimization, WITHOUT ROWID, covering indexes |
+
+**Four entry modes:**
+
+| Mode | MySQL | PostgreSQL | SQLite |
+|------|-------|------------|--------|
+| Live | Queries Performance Schema | Queries pg_stat_statements | Analyzes .db file schema |
+| Offline | Parses `mysql-slow.log` | Parses PG logs (pgbadger) | N/A (file is always available) |
+| Pasted | User pastes from monitoring tools | User pastes from monitoring tools | User pastes EXPLAIN QUERY PLAN output |
+| Auto-detect | `--dbtype mysql` or omit for auto-detect | `--dbtype postgresql` | `--dbtype sqlite -f my.db` |
 
 **Per query, the skill:** fingerprints → identifies ORM anti-pattern →
 locates source code → recommends framework-idiomatic fix → rates severity.
 
 ```bash
-./slow-query-analyzer/analyze-slow-queries.sh -h db-host -u root -d mydb -o report.json
+# MySQL
+./slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h db-host -u root -d mydb -o report.json
+
+# PostgreSQL
+./slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h db-host -U postgres -d mydb -o report.json
+
+# SQLite
+./slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db -o report.json
 ```
 
 ## Quick Start
 
 ```bash
-# 1. Audit your MySQL config
+# MySQL: Audit config + analyze slow queries
 ./mysql-audit.sh -h your-db-host -u root -r primary
+./slow-query-analyzer/analyze-slow-queries.sh --dbtype mysql -h your-db-host -u root -d mydb -o report.json
 
-# 2. Apply the generated mysql-optimized.cnf (review first!)
+# PostgreSQL: Audit config + analyze slow queries
+./postgresql-audit.sh -h your-db-host -U postgres -d mydb -r primary
+./slow-query-analyzer/analyze-slow-queries.sh --dbtype postgresql -h your-db-host -U postgres -d mydb -o report.json
 
-# 3. Extract and analyze slow queries
-./slow-query-analyzer/analyze-slow-queries.sh -h your-db-host -u root -d mydb -o report.json
+# SQLite: Audit PRAGMAs + analyze schema/queries
+./sqlite-audit.sh -d myapp.db -w web
+./slow-query-analyzer/analyze-slow-queries.sh --dbtype sqlite -f myapp.db -o report.json
 
-# 4. Point your agent at the results + your app repo
-# "Analyze slow queries from report.json for our Laravel app"
+# Apply the generated configs (review first!)
+# MySQL:   cp mysql-optimized.cnf /etc/mysql/my.cnf && systemctl restart mysql
+# PostgreSQL: cp postgresql-optimized.conf $PGDATA/postgresql.conf && pg_ctl reload
+# SQLite:  sqlite3 myapp.db < sqlite-optimized-pragmas.sql
 ```
 
 ## Requirements
 
-- **mysql-audit.sh**: `mysql` or `mariadb` client, `bc`, `numfmt`
-- **analyze-slow-queries.sh**: `mysql` client, `jq` (recommended),
-  `python3` (for JSON assembly), `pt-query-digest` (optional, for slow
-  log parsing)
-- **MySQL**: 8.0+ with Performance Schema enabled
-- **Agent skill**: works with any agent that reads SKILL.md files (Cursor,
-  Claude Code, Pi, Codex, etc.)
+| Tool | Required |
+|------|----------|
+| **mysql-audit.sh** | `mysql` or `mariadb` client, `bc`, `numfmt` |
+| **postgresql-audit.sh** | `psql` client (postgresql-client) |
+| **sqlite-audit.sh** | `sqlite3` CLI (usually pre-installed) |
+| **analyze-slow-queries.sh (MySQL)** | `mysql` client, `jq`, `python3`, `pt-query-digest` (optional) |
+| **analyze-slow-queries.sh (PostgreSQL)** | `psql` client, `jq`, `python3`, `pgbadger` (optional) |
+| **analyze-slow-queries.sh (SQLite)** | `sqlite3` CLI, `jq`, `python3` |
+| **MySQL** | 8.0+ with Performance Schema enabled |
+| **PostgreSQL** | 14+ with pg_stat_statements extension enabled |
+| **SQLite** | 3.x (3.25+ for WAL, 3.31+ for generated columns) |
+| **Agent skill** | works with any agent that reads SKILL.md files (Cursor, Claude Code, Pi, Codex, etc.) |
 
 ## License
 

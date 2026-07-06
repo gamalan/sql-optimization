@@ -1,20 +1,20 @@
 ---
 name: slow-query-analyzer
-description: Analyze MySQL slow queries and map them to framework ORM code patterns (Laravel, Django, Rails, Prisma, SQLAlchemy, GORM, Entity Framework). Diagnose N+1, missing indexes, missing eager loading, and other framework-specific anti-patterns. Provide actionable, framework-idiomatic fixes.
+description: Analyze slow queries across MySQL, PostgreSQL, and SQLite — map them to framework ORM code patterns (Laravel, Django, Rails, Prisma, SQLAlchemy, GORM, Entity Framework). Diagnose N+1, missing indexes, missing eager loading, and framework-specific anti-patterns. Provide actionable, framework-idiomatic fixes.
 ---
 
-# Slow Query Framework Analyzer
+# Slow Query Framework Analyzer (Multi-Database)
 
 ## Purpose
 
-Extract slow queries from a self-managed MySQL 8.0 instance, fingerprint
-them, and map each query pattern to the **application code that produces
-it** — identifying the framework, ORM, and exact anti-pattern at fault.
+Extract slow queries from MySQL (Performance Schema), PostgreSQL
+(pg_stat_statements), or SQLite (schema analysis) — fingerprint them, and
+map each query pattern to the **application code that produces it** —
+identifying the framework, ORM, and exact anti-pattern at fault.
 
 This skill works with the companion script `analyze-slow-queries.sh` to
-pull query data from MySQL's Performance Schema or slow query log, then
-uses framework-specific pattern knowledge to diagnose the root cause and
-recommend an idiomatic fix.
+pull query data, then uses framework-specific and database-specific pattern
+knowledge to diagnose the root cause and recommend an idiomatic fix.
 
 **Frameworks covered:**
 
@@ -28,52 +28,62 @@ recommend an idiomatic fix.
 | GORM | GORM | Go |
 | Entity Framework | EF Core | C# |
 
+**Database-specific additive patterns:**
+
+| Database | Pattern File | Key Focus |
+|----------|-------------|-----------|
+| PostgreSQL | `patterns/postgresql.md` | CTEs, BRIN indexes, partial indexes, parallel workers, partitioning, tablespaces |
+| SQLite | `patterns/sqlite.md` | WAL tuning, PRAGMA optimization, WITHOUT ROWID, covering indexes, temp tables |
+
 ## Entry Modes
 
-The skill supports three ways to get query data:
+The skill supports three ways to get query data per database:
 
-### Mode A: Live Database Access (Performance Schema)
+### Mode A: Live Database Access
 
-Agent has MySQL credentials and can query `performance_schema` directly.
-Run the companion script or query PS manually. This gives the richest data
-(timing, row counts, index usage, first/last seen timestamps).
+Agent has database credentials and can query the database directly. Run the
+companion script or query manually:
 
-### Mode B: Slow Query Log File (Offline)
+| Database | Source | Companion Script Command |
+|----------|--------|--------------------------|
+| MySQL | `performance_schema.events_statements_summary_by_digest` | `--dbtype mysql -h HOST -u USER -d DB` |
+| PostgreSQL | `pg_stat_statements` | `--dbtype postgresql -h HOST -U USER -d DB` |
+| SQLite | Schema analysis + EXPLAIN QUERY PLAN | `--dbtype sqlite -f /path/to/database.db` |
 
-User provides a slow query log file exported from production. The agent
-cannot connect to the database. Use:
+### Mode B: Offline Log File
+
+User provides a slow query log file:
 
 ```bash
-./analyze-slow-queries.sh --from-slow-log /path/to/mysql-slow.log -o report.json
+# MySQL slow query log
+./analyze-slow-queries.sh --from-slow-log /path/to/mysql-slow.log --dbtype mysql
+
+# PostgreSQL log (CSV or stderr format)
+./analyze-slow-queries.sh --from-slow-log /path/to/postgresql.log --dbtype postgresql
+
+# SQLite: no log needed — always works with the .db file directly
+./analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db
 ```
-
-Or, if the log is small, the user can paste the content directly:
-
-> "Here's our slow query log from yesterday — analyze it for our Rails app."
-> `[pasted content of mysql-slow.log]`
-
-The agent parses the log, extracts queries with their execution times,
-fingerprints them, and proceeds with Phase 2-5 analysis. Since there's no
-live DB, the agent cannot run EXPLAIN — it relies on query shape analysis
-and framework pattern matching.
 
 ### Mode C: Pasted Query List (Manual)
 
-User pastes a list of slow queries from any source (Rails logs, New Relic,
-Datadog APM, application logs, `mytop`, or manual observation):
+User pastes a list of slow queries from any source (application logs, APM,
+monitoring tools). The agent fingerprints them, identifies patterns, and
+maps to framework anti-patterns regardless of database.
 
-> "These queries are slow in our Django app. What's wrong?"
->
-> ```sql
-> SELECT * FROM "app_post" WHERE "app_post"."author_id" = 1;
-> SELECT * FROM "app_post" WHERE "app_post"."author_id" = 2;
-> SELECT * FROM "app_post" WHERE "app_post"."author_id" = 3;
-> -- ... hundreds more like this
-> ```
+### Auto-Detection
 
-The agent fingerprints the queries manually, identifies patterns, and maps
-them to framework anti-patterns. Users can also paste EXPLAIN output if
-available.
+The script auto-detects the database type by probing connectivity. Omit
+`--dbtype` to let it try MySQL → PostgreSQL, or specify `-f` for SQLite.
+
+```bash
+# Auto-detect (tries MySQL first, then PostgreSQL)
+./analyze-slow-queries.sh -h db-host -u user -d mydb -o report.json
+
+# Explicit
+./analyze-slow-queries.sh --dbtype postgresql -h db-host -U postgres -d mydb -o report.json
+./analyze-slow-queries.sh --dbtype sqlite -f app.db -o report.json
+```
 
 ## Preconditions
 
@@ -201,11 +211,22 @@ The agent groups queries by fingerprint and reports:
 
 ## Phase 1: Extract Slow Queries (Live Mode)
 
-When live MySQL access is available, run the companion script:
+When live database access is available, run the companion script:
 
 ```bash
+# MySQL
 ./slow-query-analyzer/analyze-slow-queries.sh \
-    -h <mysql-host> -u <user> -p <password> \
+    --dbtype mysql -h <host> -u <user> -p <password> -d <db> \
+    -o slow-queries-report.json
+
+# PostgreSQL
+./slow-query-analyzer/analyze-slow-queries.sh \
+    --dbtype postgresql -h <host> -U <user> -d <db> \
+    -o slow-queries-report.json
+
+# SQLite
+./slow-query-analyzer/analyze-slow-queries.sh \
+    --dbtype sqlite -f /path/to/database.db \
     -o slow-queries-report.json
 ```
 
@@ -214,30 +235,35 @@ The script produces a JSON report with:
 - Top queries by total time, avg time, rows examined, and execution count
 - Query fingerprints (normalized SQL with `?` placeholders)
 - Database and table information
-- Index usage analysis from Performance Schema
+- Index usage analysis (MySQL: `SUM_NO_INDEX_USED`, PostgreSQL: `shared_blks_read`)
 - EXPLAIN output for each top fingerprint
 
-If the script cannot connect, the agent falls back to querying MySQL
-directly:
+If the script cannot connect, the agent falls back to querying directly:
 
 ```sql
--- Top queries by total time (Performance Schema)
-SELECT
-    DIGEST_TEXT,
-    COUNT_STAR,
-    ROUND(AVG_TIMER_WAIT / 1000000000, 2) AS avg_ms,
-    ROUND(SUM_TIMER_WAIT / 1000000000, 2) AS total_ms,
-    ROUND(SUM_ROWS_EXAMINED / COUNT_STAR, 0) AS avg_rows,
-    ROUND(SUM_ROWS_SENT / COUNT_STAR, 0) AS avg_rows_sent,
-    SUM_NO_INDEX_USED,
-    SUM_NO_GOOD_INDEX_USED,
-    FIRST_SEEN,
-    LAST_SEEN
+-- MySQL (Performance Schema)
+SELECT DIGEST_TEXT, COUNT_STAR,
+       ROUND(AVG_TIMER_WAIT / 1000000000, 2) AS avg_ms,
+       ROUND(SUM_TIMER_WAIT / 1000000000, 2) AS total_ms,
+       ROUND(SUM_ROWS_EXAMINED / COUNT_STAR, 0) AS avg_rows,
+       SUM_NO_INDEX_USED, SUM_NO_GOOD_INDEX_USED
 FROM performance_schema.events_statements_summary_by_digest
-WHERE DIGEST_TEXT IS NOT NULL
-  AND SCHEMA_NAME = '<database>'
-ORDER BY SUM_TIMER_WAIT DESC
-LIMIT 30;
+WHERE DIGEST_TEXT IS NOT NULL AND SCHEMA_NAME = '<database>'
+ORDER BY SUM_TIMER_WAIT DESC LIMIT 30;
+
+-- PostgreSQL (pg_stat_statements)
+SELECT LEFT(query, 200) AS fingerprint, calls,
+       ROUND(mean_exec_time::numeric, 2) AS avg_ms,
+       ROUND(total_exec_time::numeric / 1000, 4) AS total_sec,
+       shared_blks_read AS disk_reads,
+       shared_blks_hit AS cache_hits
+FROM pg_stat_statements
+JOIN pg_database d ON d.oid = dbid
+WHERE d.datname = '<database>' AND query NOT LIKE '%pg_stat%'
+ORDER BY total_exec_time DESC LIMIT 30;
+
+-- SQLite (no built-in stats — run EXPLAIN QUERY PLAN)
+EXPLAIN QUERY PLAN SELECT * FROM table WHERE condition;
 ```
 
 ## Phase 2: Detect Framework
@@ -533,39 +559,36 @@ framework-specific pattern files:
 - `patterns/gorm.md` — GORM
 - `patterns/entity-framework.md` — EF Core
 
+**Database additive patterns:**
+
+- `patterns/postgresql.md` — PostgreSQL-specific: CTEs, BRIN, partial indexes, partitioning
+- `patterns/sqlite.md` — SQLite-specific: WAL, PRAGMAs, WITHOUT ROWID, covering indexes
+
 ## Companion Script
 
-`analyze-slow-queries.sh` — Extracts slow queries from MySQL, fingerprints
-them, runs `EXPLAIN`, and outputs JSON for analysis. Run it before starting
-Phase 1.
+`analyze-slow-queries.sh` — Multi-database slow query extractor.
+Supports MySQL (Performance Schema), PostgreSQL (pg_stat_statements), and
+SQLite (schema analysis + EXPLAIN QUERY PLAN). Run it before starting Phase 1.
 
 ## Quick Start
 
 ```bash
-# === Live Mode (agent has MySQL access) ===
+# === MySQL ===
+./analyze-slow-queries.sh --dbtype mysql -h primary-host -u root -p pass -d mydb -o report.json
 
-# 1. Extract slow queries
-./analyze-slow-queries.sh -h primary-host -u root -p pass -d mydb -o report.json
+# === PostgreSQL ===
+./analyze-slow-queries.sh --dbtype postgresql -h pg-host -U postgres -d mydb -o report.json
 
-# 2. Point the skill at the result + repository
-# "Analyze slow queries from report.json for our Laravel app at /path/to/repo"
-
-# 3. Or let the skill auto-detect everything
-# "Check our slow queries — our app is at /path/to/repo, MySQL at primary-host"
-
+# === SQLite ===
+./analyze-slow-queries.sh --dbtype sqlite -f /path/to/database.db -o report.json
 
 # === Offline Mode (no DB access — user provides query log) ===
+./analyze-slow-queries.sh --from-slow-log slow-sample.log --dbtype mysql
+./analyze-slow-queries.sh --from-slow-log postgresql.log --dbtype postgresql
 
-# 1. User exports slow queries from production:
-#    cat /var/log/mysql/mysql-slow.log | head -5000 > slow-sample.log
+# === Auto-detect (tries mysql → postgresql) ===
+./analyze-slow-queries.sh -h db-host -u user -d mydb -o report.json
 
-# 2. Agent analyzes the log file locally:
-./analyze-slow-queries.sh --from-slow-log slow-sample.log -o report.json
-
-# 3. Or user pastes queries directly:
-#    "Here are the slow queries from our pt-query-digest report for our
-#     Django app at /path/to/repo:"
-#    [pasted slow query log / pt-query-digest output / Rails log excerpts]
-
-# 4. Agent fingerprints, maps to Django ORM patterns, and reports findings
+# Then point the skill at the result + repository:
+# "Analyze slow queries from report.json for our Laravel app at /path/to/repo"
 ```
