@@ -166,6 +166,54 @@ locates source code → recommends framework-idiomatic fix → rates severity.
 # SQLite:  sqlite3 myapp.db < sqlite-optimized-pragmas.sql
 ```
 
+## Installing the Agent Skills
+
+This repo contains two agent-agnostic skills (any agent that reads `SKILL.md`
+files — Pi, Claude Code, Cursor, Codex, etc.). Each skill is a directory
+with a `SKILL.md` at its root:
+
+| Skill | Path | What it Teaches the Agent |
+|-------|------|---------------------------|
+| **slow-query-analyzer** | `slow-query-analyzer/` | Extracts & diagnoses slow queries, maps to ORM anti-patterns, recommends fixes |
+| **index-luke** | `skills/index-luke/` | SQL indexing principles: composite column order, covering indexes, keyset pagination |
+
+### Per-Agent Install Commands
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/gamalan/sql-optimization.git
+cd sql-optimization
+
+# === Pi ===
+# Register each skill directory (--name can be anything):
+pi install ./slow-query-analyzer --name slow-query-analyzer
+pi install ./skills/index-luke --name index-luke
+
+# Or install from GitHub directly:
+pi install github:gamalan/sql-optimization/slow-query-analyzer --name slow-query-analyzer
+pi install github:gamalan/sql-optimization/skills/index-luke --name index-luke
+
+# === Claude Code ===
+# Copy or symlink into ~/.claude/skills/:
+mkdir -p ~/.claude/skills
+cp -r slow-query-analyzer ~/.claude/skills/slow-query-analyzer
+cp -r skills/index-luke ~/.claude/skills/index-luke
+
+# Then in Claude Code: /add-skill slow-query-analyzer
+#                       /add-skill index-luke
+
+# === Cursor / Codex / Other Agents ===
+# Configure your agent's skill directory to include the repo root.
+# The agent will auto-discover SKILL.md files in subdirectories.
+# Check your agent's docs for skills configuration.
+```
+
+Once installed, invoke the skills in natural language:
+
+> "Use the slow-query-analyzer to check our PostgreSQL slow queries"
+
+> "Explain why this query is slow using index-luke principles"
+
 ## Requirements
 
 | Tool | Required |
