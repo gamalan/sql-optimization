@@ -34,6 +34,14 @@ Covers the full read/write optimization stack:
 - Backup & recovery (XtraBackup, PITR, restore drills)
 - PlanetScale-inspired practices adapted for self-managed MySQL
 
+### `skills/index-luke/` — Indexing Expert Skill
+
+An agent-agnostic skill based on Markus Winand's
+[Use The Index, Luke!](https://use-the-index-luke.com/). Teaches and
+diagnoses SQL indexing: composite index column ordering, pipelined ORDER
+BY, keyset pagination, covering indexes, join indexing, and 10 indexed
+lessons covering the full body of work.
+
 ### `slow-query-analyzer/` — Agent Skill
 
 An agent-agnostic skill that maps MySQL slow queries to framework ORM
