@@ -168,51 +168,45 @@ locates source code → recommends framework-idiomatic fix → rates severity.
 
 ## Installing the Agent Skills
 
-This repo contains two agent-agnostic skills (any agent that reads `SKILL.md`
-files — Pi, Claude Code, Cursor, Codex, etc.). Each skill is a directory
-with a `SKILL.md` at its root:
-
-| Skill | Path | What it Teaches the Agent |
-|-------|------|---------------------------|
-| **slow-query-analyzer** | `slow-query-analyzer/` | Extracts & diagnoses slow queries, maps to ORM anti-patterns, recommends fixes |
-| **index-luke** | `skills/index-luke/` | SQL indexing principles: composite column order, covering indexes, keyset pagination |
-
-### Per-Agent Install Commands
+This repo contains a **root `SKILL.md`** that bundles the entire toolkit — audit
+scripts, slow query analyzer, and indexing expertise — into one installable skill.
+The agent gets access to all tools when you install from the repo root.
 
 ```bash
 # 1. Clone the repo
 git clone https://github.com/gamalan/sql-optimization.git
 cd sql-optimization
 
-# === Pi ===
-# Register each skill directory (--name can be anything):
+# === Pi (Recommended: install the root skill — everything included) ===
+pi install . --name sql-optimization
+
+# Or from GitHub directly:
+pi install github:gamalan/sql-optimization --name sql-optimization
+
+# === Pi (Individual skills if you only need one) ===
 pi install ./slow-query-analyzer --name slow-query-analyzer
 pi install ./skills/index-luke --name index-luke
-
-# Or install from GitHub directly:
-pi install github:gamalan/sql-optimization/slow-query-analyzer --name slow-query-analyzer
-pi install github:gamalan/sql-optimization/skills/index-luke --name index-luke
+# Note: individual installs only include that subdirectory — audit
+# scripts at repo root won't be available to the agent.
 
 # === Claude Code ===
-# Copy or symlink into ~/.claude/skills/:
-mkdir -p ~/.claude/skills
-cp -r slow-query-analyzer ~/.claude/skills/slow-query-analyzer
-cp -r skills/index-luke ~/.claude/skills/index-luke
-
-# Then in Claude Code: /add-skill slow-query-analyzer
-#                       /add-skill index-luke
+# Copy the whole repo into ~/.claude/skills/:
+cp -r . ~/.claude/skills/sql-optimization
+# Then in Claude Code: /add-skill sql-optimization
 
 # === Cursor / Codex / Other Agents ===
-# Configure your agent's skill directory to include the repo root.
-# The agent will auto-discover SKILL.md files in subdirectories.
-# Check your agent's docs for skills configuration.
+# Point your agent's skill directory at the cloned repo root.
+# The agent discovers the root SKILL.md + all sub-skills.
 ```
 
 Once installed, invoke the skills in natural language:
 
-> "Use the slow-query-analyzer to check our PostgreSQL slow queries"
+> "Audit our PostgreSQL config at db-primary and check for slow queries
+> in our Django app"
 
 > "Explain why this query is slow using index-luke principles"
+
+> "Run the MySQL auditor against our primary and suggest config changes"
 
 ## Requirements
 
